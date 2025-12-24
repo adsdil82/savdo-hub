@@ -20,23 +20,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useCart } from "@/context/CartContext";
-import { UZBEKISTAN_REGIONS, CartItem } from "@/types";
+import { UZBEKISTAN_REGIONS } from "@/types";
 import { formatPrice } from "@/data/products";
 import { Send, CheckCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+
 const orderSchema = z.object({
-  customerName: z
-    .string()
-    .trim()
-    .min(2, { message: "Исм камида 2 та ҳарфдан иборат бўлиши керак" })
-    .max(50, { message: "Исм 50 та ҳарфдан ошмаслиги керак" }),
-  phone: z
-    .string()
-    .regex(/^\+998[0-9]{9}$/, {
-      message: "Телефон рақами +998XXXXXXXXX форматида бўлиши керак",
-    }),
-  region: z.string().min(1, { message: "Вилоятни танланг" }),
+  customerName: z.string().min(2, "Исм камида 2 та ҳарф"),
+  phone: z.string().regex(/^\+998\d{9}$/, "Телефон формати нотўғри"),
+  region: z.string().min(1, "Вилоятни танланг"),
 });
 
 type OrderFormData = z.infer<typeof orderSchema>;
@@ -56,8 +48,8 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
     register,
     handleSubmit,
     setValue,
-    formState: { errors },
     reset,
+    formState: { errors },
   } = useForm<OrderFormData>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
@@ -71,46 +63,46 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
     setIsSubmitting(true);
 
     try {
-      // Send order to Telegram via edge function
-      const { data: result, error } = await supabase.functions.invoke("send-telegram-order", {
-        body: {
+      const res = await fetch("http://localhost:3001/send-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           customerName: data.customerName,
           phone: data.phone,
           region: data.region,
-          items: items.map(item => ({
+          items: items.map((item) => ({
             name: item.name,
             quantity: item.quantity,
             price: item.price,
           })),
           totalPrice,
-        },
+        }),
       });
 
-      if (error) {
-        console.error("Error sending order:", error);
-        throw error;
+      if (!res.ok) {
+        throw new Error("Backend error");
       }
 
-      console.log("Order sent successfully:", result);
       setIsSuccess(true);
 
       toast({
-        title: "Заказ муваффақиятли юборилди!",
-        description: "Сиз билан тез орада боғланамиз.",
+        title: "Заказ юборилди",
+        description: "Сиз билан тез орада боғланамиз",
       });
 
-      // Clear cart and close modal after delay
       setTimeout(() => {
         clearCart();
         reset();
         setIsSuccess(false);
         onOpenChange(false);
       }, 2000);
-    } catch (error) {
-      console.error("Order submission error:", error);
+    } catch (err) {
+      console.error(err);
       toast({
-        title: "Хатолик юз берди",
-        description: "Илтимос, қайта уриниб кўринг",
+        title: "Хатолик",
+        description: "Заказ юборилмади, қайта уриниб кўринг",
         variant: "destructive",
       });
     } finally {
@@ -119,16 +111,9 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-    
-    // Ensure it starts with +998
-    if (!value.startsWith("+998")) {
-      value = "+998" + value.replace(/^\+?998?/, "");
-    }
-    
-    // Only allow digits after +998
-    value = "+998" + value.slice(4).replace(/\D/g, "").slice(0, 9);
-    
+    let value = e.target.value.replace(/\D/g, "");
+    if (!value.startsWith("998")) value = "998";
+    value = "+998" + value.slice(3, 12);
     e.target.value = value;
     register("phone").onChange(e);
   };
@@ -136,18 +121,12 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
   if (isSuccess) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 animate-scale-in">
-              <CheckCircle className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">
-              Заказ қабул қилинди!
-            </h3>
-            <p className="text-muted-foreground">
-              Раҳмат! Сиз билан тез орада боғланамиз.
-            </p>
-          </div>
+        <DialogContent className="sm:max-w-md text-center">
+          <CheckCircle className="mx-auto h-12 w-12 text-primary mb-4" />
+          <h3 className="text-xl font-semibold">Заказ қабул қилинди</h3>
+          <p className="text-muted-foreground mt-2">
+            Раҳмат! Сиз билан боғланамиз
+          </p>
         </DialogContent>
       </Dialog>
     );
@@ -155,110 +134,100 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Заказ бериш</DialogTitle>
           <DialogDescription>
-            Маълумотларингизни тўлдиринг ва биз сиз билан боғланамиз
+            Маълумотларни тўлдиринг
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 mt-4">
-          {/* Customer Name */}
-          <div className="space-y-2">
-            <Label htmlFor="customerName">Исмингиз *</Label>
-            <Input
-              id="customerName"
-              placeholder="Исмингизни киритинг"
-              {...register("customerName")}
-              className={errors.customerName ? "border-destructive" : ""}
-            />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 mt-4">
+          <div>
+            <Label>Исм *</Label>
+            <Input {...register("customerName")} />
             {errors.customerName && (
-              <p className="text-sm text-destructive">
+              <p className="text-destructive text-sm">
                 {errors.customerName.message}
               </p>
             )}
           </div>
 
-          {/* Phone */}
-          <div className="space-y-2">
-            <Label htmlFor="phone">Телефон рақами *</Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+998901234567"
-              {...register("phone")}
-              onChange={handlePhoneChange}
-              className={errors.phone ? "border-destructive" : ""}
-            />
+          <div>
+            <Label>Телефон *</Label>
+            <Input {...register("phone")} onChange={handlePhoneChange} />
             {errors.phone && (
-              <p className="text-sm text-destructive">{errors.phone.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.phone.message}
+              </p>
             )}
           </div>
 
-          {/* Region */}
-          <div className="space-y-2">
+          <div>
             <Label>Вилоят *</Label>
-            <Select onValueChange={(value) => setValue("region", value)}>
-              <SelectTrigger
-                className={errors.region ? "border-destructive" : ""}
-              >
-                <SelectValue placeholder="Вилоятни танланг" />
+            <Select onValueChange={(v) => setValue("region", v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Танланг" />
               </SelectTrigger>
               <SelectContent>
-                {UZBEKISTAN_REGIONS.map((region) => (
-                  <SelectItem key={region} value={region}>
-                    {region}
+                {UZBEKISTAN_REGIONS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             {errors.region && (
-              <p className="text-sm text-destructive">{errors.region.message}</p>
+              <p className="text-destructive text-sm">
+                {errors.region.message}
+              </p>
             )}
           </div>
+          {/* Order items list */}
+<div className="space-y-3 p-4 rounded-xl bg-secondary/50">
+  <h4 className="font-medium">Заказ таркиби:</h4>
 
-          {/* Order Summary */}
-          <div className="space-y-3 p-4 rounded-xl bg-secondary/50">
-            <h4 className="font-medium">Заказ таркиби:</h4>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex justify-between text-sm"
-                >
-                  <span className="text-muted-foreground">
-                    {item.name} × {item.quantity}
-                  </span>
-                  <span className="font-medium">
-                    {formatPrice(item.price * item.quantity)}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-between pt-3 border-t border-border">
-              <span className="font-semibold">Жами:</span>
-              <span className="font-bold text-primary text-lg">
-                {formatPrice(totalPrice)}
-              </span>
+  <div className="space-y-2 max-h-40 overflow-y-auto">
+    {items.map((item) => (
+      <div
+        key={item.id}
+        className="flex justify-between text-sm"
+      >
+        <span className="text-muted-foreground">
+          {item.name} × {item.quantity}
+        </span>
+        <span className="font-medium">
+          {formatPrice(item.price * item.quantity)}
+        </span>
+      </div>
+    ))}
+  </div>
+
+  <div className="flex justify-between pt-3 border-t border-border">
+    <span className="font-semibold">Жами:</span>
+    <span className="font-bold text-primary text-lg">
+      {formatPrice(totalPrice)}
+    </span>
+  </div>
+</div>
+
+
+          <div className="p-4 bg-secondary/40 rounded-lg">
+            <div className="flex justify-between font-semibold">
+              <span>Жами:</span>
+              <span>{formatPrice(totalPrice)}</span>
             </div>
           </div>
 
-          {/* Submit Button */}
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full"
-            disabled={isSubmitting || items.length === 0}
-          >
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Юборилмоқда...
+                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                Юборилмоқда
               </>
             ) : (
               <>
-                <Send className="h-5 w-5" />
+                <Send className="h-4 w-4 mr-2" />
                 Заказни юбориш
               </>
             )}

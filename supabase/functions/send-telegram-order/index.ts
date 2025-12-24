@@ -30,8 +30,8 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-    const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
+    const TELEGRAM_BOT_TOKEN = Deno.env.get("8477303807:AAFxB-8KW3SU1oyd4sfcCgzF2GNzdrnVN4c");
+    const TELEGRAM_CHAT_ID = Deno.env.get("8477303807");
 
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
       console.error("Missing Telegram configuration");
