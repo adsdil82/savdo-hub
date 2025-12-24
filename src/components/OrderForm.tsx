@@ -63,19 +63,17 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch("http://localhost:3001/send-order", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          customerName: data.customerName,
-          phone: data.phone,
-          region: data.region,
-          items: items.map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
+    fetch("/api/send-order", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    customerName: data.customerName,
+    phone: data.phone,
+    region: data.region,
+    items,
+    totalPrice,
           })),
           totalPrice,
         }),
