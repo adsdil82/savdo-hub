@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "vercel";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 export default async function handler(
   req: VercelRequest,
@@ -9,49 +9,56 @@ export default async function handler(
   }
 
   try {
-    const {
-      customerName,
-      phone,
-      region,
-      items,
-      totalPrice,
-    } = req.body;
+    const { customerName, phone, region, items, totalPrice } = req.body;
 
-    const text = `
+    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+    const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+    if (!BOT_TOKEN || !CHAT_ID) {
+      throw new Error("Telegram env not set");
+    }
+
+    const itemsText = items
+      .map(
+        (item: any, i: number) =>
+          `${i + 1}. ${item.name} × ${item.quantity} — ${item.price} сўм`
+      )
+      .join("\n");
+
+    const message = `
 🛒 ЯНГИ ЗАКАЗ
 
-👤 Исм: ${customerName}
+👤 Мижоз: ${customerName}
 📞 Телефон: ${phone}
 📍 Вилоят: ${region}
 
 📦 Товарлар:
-${items.map((i: any, idx: number) =>
-  `${idx + 1}. ${i.name} × ${i.quantity}`
-).join("\n")}
+${itemsText}
 
 💰 Жами: ${totalPrice} сўм
-    `;
+`;
 
-    const telegramRes = await fetch(
-      `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+    const tgRes = await fetch(
+      `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chat_id: process.env.TELEGRAM_CHAT_ID,
-          text,
+          chat_id: CHAT_ID,
+          text: message,
         }),
       }
     );
 
-    const result = await telegramRes.json();
+    const tgData = await tgRes.json();
 
-    if (!result.ok) {
-      throw new Error(result.description);
+    if (!tgData.ok) {
+      throw new Error(tgData.description);
     }
 
     return res.status(200).json({ success: true });
-  } catch (e: any) {
-    return res.status(500).json({ error: e.message });
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({ error: err.message });
   }
 }
