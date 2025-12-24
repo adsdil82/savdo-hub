@@ -24,7 +24,7 @@ import { UZBEKISTAN_REGIONS, CartItem } from "@/types";
 import { formatPrice } from "@/data/products";
 import { Send, CheckCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
+import { supabase } from "@/integrations/supabase/client";
 const orderSchema = z.object({
   customerName: z
     .string()
@@ -67,38 +67,31 @@ export function OrderForm({ open, onOpenChange }: OrderFormProps) {
     },
   });
 
-  const formatOrderMessage = (data: OrderFormData, items: CartItem[]) => {
-    const itemsList = items
-      .map(
-        (item, index) =>
-          `${index + 1}. ${item.name} - ${item.quantity} та × ${formatPrice(item.price)}`
-      )
-      .join("\n");
-
-    return `🛒 *ЯНГИ ЗАКАЗ*
-
-👤 *Мижоз:* ${data.customerName}
-📞 *Телефон:* ${data.phone}
-📍 *Вилоят:* ${data.region}
-
-📦 *Товарлар:*
-${itemsList}
-
-💰 *Жами:* ${formatPrice(totalPrice)}`;
-  };
-
   const onSubmit = async (data: OrderFormData) => {
     setIsSubmitting(true);
 
     try {
-      // For now, we'll simulate sending to Telegram
-      // This will be connected to a real Telegram bot later
-      const message = formatOrderMessage(data, items);
-      console.log("Order message:", message);
+      // Send order to Telegram via edge function
+      const { data: result, error } = await supabase.functions.invoke("send-telegram-order", {
+        body: {
+          customerName: data.customerName,
+          phone: data.phone,
+          region: data.region,
+          items: items.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          totalPrice,
+        },
+      });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (error) {
+        console.error("Error sending order:", error);
+        throw error;
+      }
 
+      console.log("Order sent successfully:", result);
       setIsSuccess(true);
 
       toast({
@@ -114,6 +107,7 @@ ${itemsList}
         onOpenChange(false);
       }, 2000);
     } catch (error) {
+      console.error("Order submission error:", error);
       toast({
         title: "Хатолик юз берди",
         description: "Илтимос, қайта уриниб кўринг",
