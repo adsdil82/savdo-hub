@@ -1,9 +1,17 @@
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingCart, Search, Menu, X } from "lucide-react";
+import { ShoppingCart, Search, Menu, X, Settings, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -12,6 +20,7 @@ interface HeaderProps {
 
 export function Header({ onSearch, searchQuery = "" }: HeaderProps) {
   const { totalItems } = useCart();
+  const { user, isAdmin, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const location = useLocation();
@@ -71,8 +80,44 @@ export function Header({ onSearch, searchQuery = "" }: HeaderProps) {
           </Link>
         </nav>
 
-        {/* Cart Button */}
+        {/* Right side buttons */}
         <div className="flex items-center gap-2">
+          {/* User menu */}
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <User className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem className="text-muted-foreground" disabled>
+                  {user.email}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin" className="cursor-pointer">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Админ панел
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Чиқиш
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link to="/auth">
+              <Button variant="ghost" size="sm">
+                Кириш
+              </Button>
+            </Link>
+          )}
+
+          {/* Cart Button */}
           <Link to="/cart">
             <Button variant="icon" size="icon" className="relative">
               <ShoppingCart className="h-5 w-5" />
@@ -131,6 +176,33 @@ export function Header({ onSearch, searchQuery = "" }: HeaderProps) {
               >
                 Саватча ({totalItems})
               </Link>
+              {isAdmin && (
+                <Link 
+                  to="/admin" 
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    location.pathname === "/admin" ? "bg-accent text-accent-foreground" : "hover:bg-accent"
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Админ панел
+                </Link>
+              )}
+              {user ? (
+                <button 
+                  onClick={() => { signOut(); setMobileMenuOpen(false); }}
+                  className="px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent text-left"
+                >
+                  Чиқиш
+                </button>
+              ) : (
+                <Link 
+                  to="/auth" 
+                  className="px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-accent"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Кириш
+                </Link>
+              )}
             </nav>
           </div>
         </div>
